@@ -1,6 +1,5 @@
-; можно распаковывать чанками по 256 -- меньше оверхед, но мешается музону
-; #define GETCHUNK256
-; без дефайна чанки по 16
+; unroll single-pixel setpixel for slight speedup
+#define UNROLL_SETPIXEL1
 
                 .tape v06c-rom
                 .project grad.rom
@@ -18,65 +17,82 @@
                 sta $38
 
 		call	Cls
-		ei
-		hlt
-		lxi h, pal
-                call colorset
 
 Restart:
-		lxi	sp,$100
-		call	Cls
+		lxi sp,$100
+		call Cls
+                call install_gigachad ; init and install gigachad16 music player
+                call stream_dzx0_exit ; reset streaming dzx0
+                
+                ; restart from the beginning of the picture stream
+stream_again:
+                call picstream_init   ; init picture zx0 stream
 
-                call install_gigachad
-                ei
+                ; show next picture from the stream
+picture_again:  ; it starts with 16 palette bytes
+                di
+                mvi a, $ff
+                sta int_colorset_f    ; colorset_f = true
+                mov h, b
+                mov l, c
+                shld picstream_bc     ; save bc
+                ei                    ; interrupt will call colorset
+                hlt                   ; and set palette from the stream
+                lhld picstream_bc     ; restore bc (updated by interrupt)
+                mov b, h
+                mov c, l
 
-picture_again:
-
-                call picstream_init
-
+                ; progressive refinement
                 ; first refinement: 32x32
                 ; pixel 0 of every tile
                 lxi d, $80ff  ; $8000 top row
                 
+                ; setpixel sets 8x8 pixels
                 call setpixel_set8
-
 t8_L1
-                ;ldax b
-                ;inx b
                 call picstream_getbyte
-                lxi h, pseq_yx
+                lxi h, pseq_yx        ; &pseq_yx[0] start of prog sequence
+                push b
                 call setpixel
                 inr d
                 lxi h, pseq_yx
                 call setpixel
-                inr d
-                mvi a, $a0
+                pop b
+                inr d                 ; column++
+                mvi a, $a0            ; column == 0xa0?
                 cmp d
-                jnz t8_L1
-                mvi d, $80
-                mvi a, -8
-                add e
-                jnc t8_done
+                jnz t8_L1             ; no, continue
+                mvi d, $80            ; reset column to 0
+                mvi a, -8             ; advance 8 pixels down
+                add e                 
+                jnc t8_done           ; do the next line
                 mov e, a
                 jmp t8_L1
 t8_done:
 
+                ; setpixel sets 4x4 pixels
                 call setpixel_set4
 
                 lxi d, $80ff
 t4_L1:
                 call picstream_getbyte
-                lxi h, pseq_yx + 1*2
+                lxi h, pseq_yx + 1*2  ; &pseq_yx[1] 4x4 prog sequence (3/tile)
+                push b
                 call setpixel     ; 1
                 call setpixel     ; 2
+                pop b
                 call picstream_getbyte
+                push b
                 call setpixel     ; 3
                 inr d
                 lxi h, pseq_yx + 1*2
                 call setpixel     ; 1
+                pop b
                 call picstream_getbyte
+                push b
                 call setpixel     ; 2
                 call setpixel     ; 3
+                pop b
 
                 inr d
                 mvi a, $a0
@@ -91,17 +107,20 @@ t4_L1:
 
 t4_done:
 
+                ; setpixel sets 2x2 pixels
                 call setpixel_set2
                 
                 lxi d, $80ff
 t2_L0:
-                lxi h, pseq_yx + 4*2
+                lxi h, pseq_yx + 4*2  ; &pseq_yx[4] 2x2 prog sequence (12/tile)
                 mvi a, 12
 t2_L1:
                 push psw
                 call picstream_getbyte
+                push b
                 call setpixel
                 call setpixel
+                pop b
                 pop psw
                 sui 2
                 jnz t2_L1
@@ -118,21 +137,50 @@ t2_L1:
                 jmp t2_L0
 
 tile2_done:
+
+                ; final refinement, lots of single pixels
+#ifndef UNROLL_SETPIXEL1
                 call setpixel_set1
+#endif
 
                 lxi d, $80ff
 tile1_L0:
-                lxi h, pseq_yx + 16*2
+                lxi h, pseq_yx + 16*2 ; &pseq_yx[16] 1x1 prog sequence (48/tile)
                 mvi a, 48
 tile1_L1:
                 push psw
-                call picstream_getbyte
-                call setpixel   ; set pixel in high nybble of A
-                call setpixel
-                call picstream_getbyte
-                call setpixel   ; set pixel in high nybble of A
-                call setpixel
 
+                ;call picstream_getbyte  
+                ldax b                ; inline getbyte + fetch
+                inr c
+                cz picstream_fetch
+                ;--
+
+                push b
+#ifdef UNROLL_SETPIXEL1
+                call setpixel1   ; set pixel in high nybble of A
+                call setpixel1   ; low nybble
+#else
+                call setpixel
+                call setpixel
+#endif
+                pop b
+
+                ;call picstream_getbyte
+                ldax b                ; inline getbyte + fetch
+                inr c
+                cz picstream_fetch
+                ;--
+
+                push b
+#ifdef UNROLL_SETPIXEL1
+                call setpixel1   ; set pixel in high nybble of A
+                call setpixel1   ; low nybble
+#else
+                call setpixel
+                call setpixel
+#endif
+                pop b
                 pop psw
                 sui 4
                 jnz tile1_L1
@@ -143,6 +191,7 @@ tile1_L1:
                 cmp d
                 jnz tile1_L0
 
+                ; next bitplane
                 mvi d, $80
                 mvi a, -8
                 add e
@@ -150,27 +199,43 @@ tile1_L1:
                 mov e, a
                 jmp tile1_L0
 tile1_done
-		jmp picture_again
+                ; picture finished
+
+                ; wait 1 sec before moving on to the next picture
+                mvi a, 50
+picture_delay:
+                ei
+                hlt
+                dcr a
+                jnz picture_delay
+restart_stream_f equ $+1
+                mvi a, 0
+                ora a
+		jz picture_again
+                xra a
+                sta restart_stream_f
+                jmp stream_again
 
 
-
-
-                ; d = tile addr
+                ; de = tile addr
                 ; hl = ptr to yx offsets in current tile 
                 ; a = XXXXYYYY  ; XXXX =color pixel to set
                 ; returns a = YYYY____  (next pixel in high nybble of A)
 setpixel:       
                 push d
-                push b
-                push h
+                ;push b       ; stream buffer ptr caller-saved
                 mov b, a      ; b = saved a, c free 
 
                 mov a, e
                 sub m
                 mov e, a      ; update pixel addr 
-                inx h         ; h -> pixel mask
+
+                inx h         ; hl -> pixel mask
                 mov c, m      ; c = set mask
-                mov h, b      ; h = pixel bits
+                inx h         ; hl -> next in tile sequence
+                push h        ; save hl
+                mov h, b      ; h = pixel bits XXXXYYYY
+                
                 mov a, c
                 cma
                 mov b, a      ; b = clear mask
@@ -181,24 +246,19 @@ setpixel_L1
                 dad h
                 jnc $+4
                 ora c
-                ;stax d
-setpixel_stax:
-                nop
-                call stax4d
+                ;  __ patch area: see setpixel_set1, _set2, _set4, _set8
+                ; /
+setpixel_stax:  nop
+                call 0
+                ; \__ patch area
 
                 mvi a, $20 \ add d \ mov d, a ; screen $a000, etc..
                 jnc setpixel_L1
 
-                mov a, h
-                sta setpix_nexta  ; save next pixel in A on return
+                mov a, h      ; next pixel in A high nybble
 
                 pop h
-                inx h \ inx h
-                pop b
                 pop d
-
-setpix_nexta    equ $+1
-                mvi a, 0
                 ret
 
 setpixel_set8:
@@ -219,11 +279,14 @@ setpixel_set2:
                 lxi h, $1c12          ; stax d \ inr e
                 shld setpixel_stax+2
                 ret
+
+#ifndef UNROLL_SETPIXEL1
 setpixel_set1:  lxi h, $1200          ; nop \ stax d
                 shld setpixel_stax
                 lxi h, 0
                 shld setpixel_stax+2
                 ret
+#endif
 
 stax8:
                 stax d \ dcr e \ stax d \ dcr e \ stax d \ dcr e \ stax d \ dcr e
@@ -234,6 +297,64 @@ stax8:
 stax4:
                 stax d \ dcr e \ stax d \ dcr e \ stax d \ dcr e \ stax d
                 mvi a, 3 \ add e \ mov e, a
+                ret
+
+
+                ; unrolled version of setpixel for 1-pixel setpixels
+                ; de = tile addr
+                ; hl = ptr to yx offsets in current tile 
+                ; a = XXXXYYYY  ; XXXX =color pixel to set
+                ; returns a = YYYY____  (next pixel in high nybble of A)
+setpixel1:       
+                push d
+                ;push b       ; stream buffer ptr caller-saved
+                mov b, a      ; b = saved a, c free 
+
+                mov a, e
+                sub m
+                mov e, a      ; update pixel addr 
+
+                inx h         ; hl -> pixel mask
+                mov c, m      ; c = set mask
+                inx h         ; hl -> next in tile sequence
+                push h        ; save hl
+                mov h, b      ; h = pixel bits XXXXYYYY
+                
+                mov a, c
+                cma
+                mov b, a      ; b = clear mask
+
+                ldax d        ; screen $8000
+                ana b
+                dad h
+                jnc $+4
+                ora c
+                stax d
+                mvi a, $20 \ add d \ mov d, a ; screen $a000, etc..
+                ldax d        ; screen $8000
+                ana b
+                dad h
+                jnc $+4
+                ora c
+                stax d
+                mvi a, $20 \ add d \ mov d, a ; screen $a000, etc..
+                ldax d        ; screen $8000
+                ana b
+                dad h
+                jnc $+4
+                ora c
+                stax d
+                mvi a, $20 \ add d \ mov d, a ; screen $a000, etc..
+                ldax d        ; screen $8000
+                ana b
+                dad h
+                jnc $+4
+                ora c
+                stax d
+
+                mov a, h
+                pop h
+                pop d
                 ret
 
 
@@ -270,234 +391,62 @@ ClrScr:
 colorset:
 		mvi	a, 88h
 		out	0
-		mvi	c, 15
+		mvi	l, 15
 colorset1:
-		mov	a, c
+		mov	a, l
 		out	2
-		mov	a, m
+
+                push h
+                call picstream_getbyte
 		out	0Ch
+                pop h
 		xthl
 		xthl
 		xthl
 		xthl
-		inx h
-		dcr	c
+
+                dcr l
 		out	0Ch
 		jp	colorset1
 		mvi	a,255
 		out	3
-		
 
+                ret
+		
 picstream_init:
-                lxi h, 0
-                dad sp
-                shld pic_dzx0_caller_sp
-                
-                lxi sp, pic_dzx0_stack_end
-                lxi b, pic_buffer
                 lxi d, pic
-                lxi h, pic_dzx0
-                push h
-                jmp pic_dzx0_yield
+                lxi b, dzx0_Buffer
+                push b
+                call stream_dzx0
+                pop b
+                ret
 
 picstream_getbyte:
-#ifdef GETCHUNK256
-                xra a
-                ora c
-#else
-                mvi a, 15
-                ana c
-#endif
-                jnz ps_getbyte_L1
-                ; unpack another block
+                ldax b
+                inr c
+                rnz
+picstream_fetch:
+                push psw
                 push b
                 push d
                 push h
-                di
-                call pic_dzx0_enter
-                ei
-                pop h
-                pop d
-                pop b
-ps_getbyte_L1   
-                ldax b
-                inr c
-                ret
-
-pic_dzx0_caller_sp  dw 0
-pic_dzx0_task_sp    dw 0
-
-pic_dzx0_enter:
-                lxi h, 0
-                dad sp
-                shld pic_dzx0_caller_sp
-                lhld pic_dzx0_task_sp
-                sphl
+                call stream_dzx0
+                jc picstream_gb_L1
+                mvi a, 1
+                sta restart_stream_f
+picstream_gb_L1:
                 pop h
                 pop d
                 pop b
                 pop psw
                 ret
+picstream_bc    dw 0
 
-pic_dzx0_yield:
-                push psw
-                push b
-                push d
-                push h
-                lxi h, 0
-                dad sp
-                shld pic_dzx0_task_sp
-                lhld pic_dzx0_caller_sp
-                sphl
-                ret
-                
-
-                ; gigachad-ful pic_dzx0
-
-                ;; pic_dzx0()
-                ;; 
-                ;; Unpack zx0 stream packed with 256-byte sized window.
-                ;; Yields every 16 bytes.
-pic_dzx0:
-		lxi h,0FFFFh            ; tos=-1 offset?
-		push h
-		inx h
-		mvi a,080h
-pic_dzx0_literals:  ; Literal (copy next N bytes from compressed file)
-		call pic_dzx0_elias         ; hl = read_interlaced_elias_gamma(FALSE)
-;		; for (i = 0; i < length; i++) write_byte(read_byte()
-		push psw
-pic_dzx0_ldir1:
-		ldax d
-		stax b
-		inx d
-		inr c           ; stay within circular buffer
-
-#ifdef GETCHUNK256
-		; yield every 256 bytes
-                xra a
-                ora c
-#else
-		; yield every 16 bytes
-                mvi a, 15
-                ana c
-#endif
-		cz pic_dzx0_yield 
-		dcx h
-		mov a,h
-		ora l
-		jnz pic_dzx0_ldir1
-		pop psw
-		add a
-
-		jc pic_dzx0_new_offset      ; if (read_bit()) goto COPY_FROM_NEW_OFFSET
-	
-		; COPY_FROM_LAST_OFFSET
-		call pic_dzx0_elias         ; hl = read_interlaced_elias_gamma(FALSE) 
-pic_dzx0_copy:
-		xchg                    ; hl = src, de = length
-		xthl                    ; ex (sp), hl:
-		                        ; tos = src
-		                        ; hl = -1
-		push h                  ; push -1
-		dad b                   ; h = -1 + dst
-		mov h, b                ; stay in the buffer!
-		xchg                    ; de = dst + offset, hl = length
-;		                        ; for (i = 0; i < length; i++) write_byte(dst[-offset+i]) 
-		push psw
-pic_dzx0_ldir_from_buf:
-		ldax d
-		stax b
-		inr e
-		inr c                   ; stay within circular buffer
-		
-		; yield every 256 bytes
-#ifdef GETCHUNK256
-                xra a
-                ora c
-#else
-                mvi a, 15
-                ana c
-#endif
-		cz pic_dzx0_yield 
-		dcx h
-		mov a,h
-		ora l
-		jnz pic_dzx0_ldir_from_buf
-		mvi h,0
-		pop psw
-		add a
-		                        ; de = de + length
-		                        ; hl = 0
-		                        ; a, carry = a + a 
-		xchg                    ; de = 0, hl = de + length .. discard dst
-		pop h                   ; hl = old offset
-		xthl                    ; offset = hl, hl = src
-		xchg                    ; de = src, hl = 0?
-		jnc pic_dzx0_literals       ; if (!read_bit()) goto COPY_LITERALS
-		
-		; COPY_FROM_NEW_OFFSET
-		; Copy from new offset (repeat N bytes from new offset)
-pic_dzx0_new_offset:
-		call pic_dzx0_elias         ; hl = read_interlaced_elias_gamma()
-		mov h,a                 ; h = a
-		pop psw                 ; drop offset from stack
-		xra a                   ; a = 0
-		sub l                   ; l == 0?
-		;rz                      ; return
-		jz pic_dzx0_ded
-		push h                  ; offset = new offset
-		; last_offset = last_offset*128-(read_byte()>>1);
-		rar\ mov h,a            ; h = hi(last_offset*128)
-		ldax d                  ; read_byte()
-		rar\ mov l,a            ; l = read_byte()>>1
-		inx d                   ; src++
-		xthl                    ; offset = hl, hl = old offset
-		
-		mov a,h                 ; 
-		lxi h,1                 ; 
-		cnc pic_dzx0_elias_backtrack; 
-		inx h
-		jmp pic_dzx0_copy
-pic_dzx0_elias:
-		inr l
-pic_dzx0_elias_loop:	
-		add a
-		jnz pic_dzx0_elias_skip
-		ldax d
-		inx d
-		ral
-pic_dzx0_elias_skip:
-		rc
-pic_dzx0_elias_backtrack:
-		dad h
-		add a
-		jnc pic_dzx0_elias_loop
-		jmp pic_dzx0_elias
-pic_dzx0_ldir:
-		push psw
-		mov a, b
-		cmp d
-		jz pic_dzx0_ldir_from_buf
-
-                ; reached the end of stream
-pic_dzx0_ded       
-                ; notify gigachad that this stream has finished
-                ;lxi h, pic_dzx0_finish_ctr
-                ;inr m
-                ;; idle forever: gigachad will restart the task/stream
-                ;call pic_dzx0_yield
-                ;jmp $-3
-                call pic_dzx0_yield
-
-
-                ; ----------------------------
-pic_dzx0_stack      ds 22
-pic_dzx0_stack_end:
                 .org     0xff00 & . + 256
-pic_buffer      ds 256
+dzx0_Buffer      ds 256
 
 
+                ; init gigachad, install interrupt handler
 install_gigachad:
                 ; загружаем и прокачиваем начало песенки
                 lxi h, song_1
@@ -511,12 +460,27 @@ install_gigachad:
                 shld $39
                 ret
 
+                ; frame interrupt
 interrupt:      push psw
                 push b
                 push d
                 push h
-                call gigachad_frame
-                call ay_send_vi53
+int_colorset_f  equ $+1
+                mvi a, 0
+                ora a               ; should set palette?
+                jz interrupt_L1
+                lhld picstream_bc   ; yes, load stream ptr and call colorset
+                mov b, h
+                mov c, l
+                call colorset
+                mov h, b
+                mov l, c
+                shld picstream_bc   ; save stream ptr
+                xra a
+                sta int_colorset_f  ; and reset colorset flag
+interrupt_L1:
+                call gigachad_frame ; update music frame
+                call ay_send_vi53   ; send to vi53
                 pop h
                 pop d
                 pop b
@@ -527,6 +491,8 @@ interrupt:      push psw
 gigachad_wrap_hook
                 ora a
                 ret
+
+.include dzx0_chunk256.asm
 
 .include VI53.asm
 
