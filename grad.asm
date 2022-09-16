@@ -20,6 +20,9 @@
 
 Restart:
 		lxi sp,$100
+                xra a
+                sta int_colorset_f    ; don't set palette
+                sta restart_stream_f  ; don't restart stream
 		call Cls
                 call install_gigachad ; init and install gigachad16 music player
                 call stream_dzx0_exit ; reset streaming dzx0
@@ -138,7 +141,7 @@ t2_L1:
 
 tile2_done:
 
-                ; final refinement, lots of single pixels
+                ; final refinement, 49152 single pixels
 #ifndef UNROLL_SETPIXEL1
                 call setpixel_set1
 #endif
@@ -203,11 +206,12 @@ tile1_done
 
                 ; wait 1 sec before moving on to the next picture
                 mvi a, 50
-picture_delay:
+picture_hold:
                 ei
                 hlt
                 dcr a
-                jnz picture_delay
+                jnz picture_hold
+
 restart_stream_f equ $+1
                 mvi a, 0
                 ora a
@@ -261,18 +265,23 @@ setpixel_stax:  nop
                 pop d
                 ret
 
+                ; switch setpixel to 8x8
 setpixel_set8:
                 lxi h, $cd00
                 shld setpixel_stax
                 lxi h, stax8
                 shld setpixel_stax+2
                 ret
+
+                ; switch setpixel to 4x4
 setpixel_set4:
                 lxi h, $cd00
                 shld setpixel_stax
                 lxi h, stax4
                 shld setpixel_stax+2
                 ret
+
+                ; switch setpixel to 2x2
 setpixel_set2:
                 lxi h, $1d12
                 shld setpixel_stax    ; stax d \ dcr e
@@ -289,14 +298,18 @@ setpixel_set1:  lxi h, $1200          ; nop \ stax d
 #endif
 
 stax8:
+                mov l, e
                 stax d \ dcr e \ stax d \ dcr e \ stax d \ dcr e \ stax d \ dcr e
                 stax d \ dcr e \ stax d \ dcr e \ stax d \ dcr e \ stax d
-                mvi a, 7 \ add e \ mov e, a
+                mov e, l
+                ;mvi a, 7 \ add e \ mov e, a
                 ret
 
 stax4:
+                mov l, e
                 stax d \ dcr e \ stax d \ dcr e \ stax d \ dcr e \ stax d
-                mvi a, 3 \ add e \ mov e, a
+                ;mvi a, 3 \ add e \ mov e, a
+                mov e, l
                 ret
 
 
@@ -317,9 +330,10 @@ setpixel1:
                 inx h         ; hl -> pixel mask
                 mov c, m      ; c = set mask
                 inx h         ; hl -> next in tile sequence
+
                 push h        ; save hl
                 mov h, b      ; h = pixel bits XXXXYYYY
-                
+
                 mov a, c
                 cma
                 mov b, a      ; b = clear mask
@@ -330,22 +344,25 @@ setpixel1:
                 jnc $+4
                 ora c
                 stax d
-                mvi a, $20 \ add d \ mov d, a ; screen $a000, etc..
-                ldax d        ; screen $8000
+                mvi a, $20 \ add d \ mov d, a ; screen $a000
+
+                ldax d
                 ana b
                 dad h
                 jnc $+4
                 ora c
                 stax d
-                mvi a, $20 \ add d \ mov d, a ; screen $a000, etc..
-                ldax d        ; screen $8000
+                mvi a, $20 \ add d \ mov d, a ; screen $c000
+
+                ldax d
                 ana b
                 dad h
                 jnc $+4
                 ora c
                 stax d
-                mvi a, $20 \ add d \ mov d, a ; screen $a000, etc..
-                ldax d        ; screen $8000
+                mvi a, $20 \ add d \ mov d, a ; screen $e000
+
+                ldax d
                 ana b
                 dad h
                 jnc $+4
@@ -387,6 +404,7 @@ ClrScr:
 		jnz	ClrScr
 		ret
 
+                ; set palette directly from picstream
                 ; h -> pic
 colorset:
 		mvi	a, 88h
@@ -410,7 +428,6 @@ colorset1:
 		jp	colorset1
 		mvi	a,255
 		out	3
-
                 ret
 		
 picstream_init:
