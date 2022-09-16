@@ -1,0 +1,10 @@
+*.pic
+*.piz
+*.pal
+*.bin
+*.swp
+*.lst
+*.rom
+tmp/*
+.saved.fdd
+verify.png

@@ -1,3 +1,13 @@
+; progressive picture display demo for unexpanded vector-06c
+; 
+; svofski ivagor 2022
+;
+; features 
+;          streaming dzx0 decompressor
+;          gigachad16 player
+;          ayvi53 emulator
+
+
 ; unroll single-pixel setpixel for slight speedup
 #define UNROLL_SETPIXEL1
 
@@ -45,9 +55,11 @@ picture_again:  ; it starts with 16 palette bytes
                 mov b, h
                 mov c, l
 
+                ;
                 ; progressive refinement
-                ; first refinement: 32x32
-                ; pixel 0 of every tile
+                ;
+
+                ; first refinement: 8x8 tile size (32x32 tiles)
                 lxi d, $80ff  ; $8000 top row
                 
                 ; setpixel sets 8x8 pixels
@@ -212,8 +224,8 @@ picture_hold:
                 dcr a
                 jnz picture_hold
 
-restart_stream_f equ $+1
-                mvi a, 0
+restart_stream_f equ $+1  
+                mvi a, 0              ; stream end flag set by picstream_fetch
                 ora a
 		jz picture_again
                 xra a
@@ -267,17 +279,17 @@ setpixel_stax:  nop
 
                 ; switch setpixel to 8x8
 setpixel_set8:
-                lxi h, $cd00
-                shld setpixel_stax
+                lxi h, $cd00          ; nop \ call ...
+                shld setpixel_stax    ; ... stax8
                 lxi h, stax8
                 shld setpixel_stax+2
                 ret
 
                 ; switch setpixel to 4x4
 setpixel_set4:
-                lxi h, $cd00
+                lxi h, $cd00          ; nop \ call ...
                 shld setpixel_stax
-                lxi h, stax4
+                lxi h, stax4          ; ... stax4
                 shld setpixel_stax+2
                 ret
 
@@ -302,13 +314,11 @@ stax8:
                 stax d \ dcr e \ stax d \ dcr e \ stax d \ dcr e \ stax d \ dcr e
                 stax d \ dcr e \ stax d \ dcr e \ stax d \ dcr e \ stax d
                 mov e, l
-                ;mvi a, 7 \ add e \ mov e, a
                 ret
 
 stax4:
                 mov l, e
                 stax d \ dcr e \ stax d \ dcr e \ stax d \ dcr e \ stax d
-                ;mvi a, 3 \ add e \ mov e, a
                 mov e, l
                 ret
 
@@ -385,7 +395,7 @@ setpixel1:
 ;   7  33   8  36  10  45  11  48
 ;  31  32  34  35  43  44  46  47
 
-; для каждой позиции в тайле: y смещение, пиксельная маска
+; для каждой позиции в тайле: y смещение, вместо x пиксельная маска
 pseq_yx:        db 0,255,                   ; 8 - толстая маска
                 db 4,$f0, 4,$0f, 0,$0f      ; 4 - половинки
                 db 2,$c0, 2,$30, 0,$30,     ; 2 - четвертинки

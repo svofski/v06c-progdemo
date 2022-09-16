@@ -7,14 +7,13 @@ PASM=prettyasm/main.js
 YM6BRK=tools/ym6break.py
 
 SONGE="sparkmonty53"
-#SONGE="manofart"
-#SONGE="kurtibm"
-#SONGE="exengine"
 
 if ! test -e songe.inc ; then
   $YM6BRK music/$SONGE.ym songA_
   mv $SONGE.inc songe.inc
 fi
+
+mkdir -p tmp
 
 SRCPIC=$1
 SRCPIC2=$2
@@ -42,6 +41,4 @@ $PNG2DB -mode spiralbox $SRCPIC3
 
 cat $spiralpal $spiralpic $spiralpal2 $spiralpic2 $spiralpal3 $spiralpic3 > tmp/pic2.pic
 $SALVADOR -w 256 -classic tmp/pic2.pic $spiralpiz
-#$SALVADOR -w 256 -classic $spiralpic $spiralpiz
-# 
 cat grad.bin $spiralpal $spiralpiz >$name.rom
