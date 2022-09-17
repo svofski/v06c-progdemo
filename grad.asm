@@ -11,8 +11,10 @@
 ; unroll single-pixel setpixel for slight speedup
 #define UNROLL_SETPIXEL1
 
+#ifdef PASM
                 .tape v06c-rom
                 .project grad.rom
+#endif
 		.org $100
 		di
 		xra	a
@@ -242,7 +244,7 @@ picture_hold:
                 dcr a
                 jnz picture_hold
 
-restart_stream_f equ $+1  
+restart_stream_f .equ $+1  
                 mvi a, 0              ; stream end flag set by picstream_fetch
                 ora a
 		jz picture_again
@@ -414,13 +416,13 @@ setpixel1:
 ;  31  32  34  35  43  44  46  47
 
 ; для каждой позиции в тайле: y смещение, вместо x пиксельная маска
-pseq_yx:        db 0,255,                   ; 8 - толстая маска
-                db 4,$f0, 4,$0f, 0,$0f      ; 4 - половинки
-                db 2,$c0, 2,$30, 0,$30,     ; 2 - четвертинки
-                db 6,$c0, 6,$30, 4,$30,     
-                db 6,$0c, 6,$03, 4,$03, 
-                db 2,$0c, 2,$03, 0,$03, 
-                db 1,128, 1,64, 0,64, 3,128, 3,64, 2,64, 3,32, 3,16, 2,16, 1,32, 1,16, 0,16, 5,128, 5,64, 4,64, 7,128, 7,64, 6,64, 7,32, 7,16, 6,16, 5,32, 5,16, 4,16, 5,8, 5,4, 4,4, 7,8, 7,4, 6,4, 7,2, 7,1, 6,1, 5,2, 5,1, 4,1, 1,8, 1,4, 0,4, 3,8, 3,4, 2,4, 3,2, 3,1, 2,1, 1,2, 1,1, 0,1        ; 1 - восьмушки
+pseq_yx:        .db 0,255,                   ; 8 - толстая маска
+                .db 4,$f0, 4,$0f, 0,$0f      ; 4 - половинки
+                .db 2,$c0, 2,$30, 0,$30,     ; 2 - четвертинки
+                .db 6,$c0, 6,$30, 4,$30,     
+                .db 6,$0c, 6,$03, 4,$03, 
+                .db 2,$0c, 2,$03, 0,$03, 
+                .db 1,128, 1,64, 0,64, 3,128, 3,64, 2,64, 3,32, 3,16, 2,16, 1,32, 1,16, 0,16, 5,128, 5,64, 4,64, 7,128, 7,64, 6,64, 7,32, 7,16, 6,16, 5,32, 5,16, 4,16, 5,8, 5,4, 4,4, 7,8, 7,4, 6,4, 7,2, 7,1, 6,1, 5,2, 5,1, 4,1, 1,8, 1,4, 0,4, 3,8, 3,4, 2,4, 3,2, 3,1, 2,1, 1,2, 1,1, 0,1        ; 1 - восьмушки
 
 Cls:
 		lxi	h,08000h
@@ -486,10 +488,10 @@ picstream_gb_L1:
                 pop b
                 pop psw
                 ret
-picstream_bc    dw 0
+picstream_bc:   .dw 0
 
-                .org     0xff00 & . + 256
-dzx0_Buffer      ds 256
+                .org     0ff00h & $ + 256
+dzx0_Buffer:    .ds 256
 
 
                 ; init gigachad, install interrupt handler
@@ -511,7 +513,7 @@ interrupt:      push psw
                 push b
                 push d
                 push h
-int_colorset_f  equ $+1
+int_colorset_f  .equ $+1
                 mvi a, 0
                 ora a               ; should set palette?
                 jz interrupt_L1
@@ -543,8 +545,8 @@ gigachad_wrap_hook
 .include VI53.asm
 
 ; songe
-song_1:         dw songA_00, songA_01, songA_02, songA_03, songA_04, songA_05, songA_06
-                dw songA_07, songA_08, songA_09, songA_10, songA_11, songA_12, songA_13
+song_1:         .dw songA_00, songA_01, songA_02, songA_03, songA_04, songA_05, songA_06
+                .dw songA_07, songA_08, songA_09, songA_10, songA_11, songA_12, songA_13
 .include songe.inc
 
 .include gigachad16.inc

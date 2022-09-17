@@ -465,4 +465,4 @@ elif mode == 'spiralbox':
 
         with open(origname + '.inc', 'w') as f:
             for line in chunker(dataz, 32):
-                f.write(f'\tdb {",".join(["$%02x" % x for x in line])}\n')
+                f.write(f'\t.db {",".join(["$%02x" % x for x in line])}\n')

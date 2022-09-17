@@ -27,21 +27,21 @@
 ; The kernel is a hack, but it can be adapted to execute any tasks.
 
 
-OPCODE_STC      equ $37
-OPCODE_ORA_A    equ $B7
+OPCODE_STC      .equ $37
+OPCODE_ORA_A    .equ $B7
 
 ; total number of scheduler tasks                
-n_tasks         equ 14
+n_tasks         .equ 14
 
 ; task stack size (20 should be enough, erring on the safe side)
-task_stack_size equ 22
+task_stack_size .equ 22
 
                 ; pointer to the current stream in song array used by create_song_tasks
-create_sptr     dw 0
+create_sptr     .dw 0
                 ; saved pointer to song arrayfor looping
-recreate_sptr   dw 0
+recreate_sptr   .dw 0
                 ; finished tasks counter, used to detect song end
-dzx0_finish_ctr db 0
+dzx0_finish_ctr .db 0
 
                 ;; Used internally by gigachad_init
                 ;; Do not call this procedure directly.
@@ -199,15 +199,15 @@ gigachad_wrap:
 
                 ; current line in decode buffer
                 ; regs would be r0 = buffer00[ay_nline], r1 = buffer00[ay_nline + 256], etc
-ay_nline        db 0
-gigachad_nfrm   db 0
-gigachad_wrap_ctr db 0
+ay_nline:          .db 0
+gigachad_nfrm:     .db 0
+gigachad_wrap_ctr: .db 0
 
                 ;
                 ; AY-3-8910 register ports
                 ;
-ayctrl          equ $15
-aydata          equ $14
+ayctrl          .equ $15
+aydata          .equ $14
                 
 ay_outde
            	mov a, d
@@ -288,7 +288,7 @@ ayvi53_stfu:
                 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
                 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-
+#ifdef NADA
 ay_send_user:
                 lxi h, ay_nline
                 ; send from buffers to AY regs
@@ -313,6 +313,8 @@ ay_send_L2
                 dcr e
                 jp ay_send_L1
                 ret
+#endif
+
 #ifndef RSOUND
 ay_send_user:
                 lxi h, ay_nline
@@ -431,9 +433,9 @@ sched_yield:
                 jnz sched_ret
 sched_restart_:
                 lxi h, context
-sched_ret
+sched_ret:
                 shld context_ptr
-sched_sp        equ $+1
+sched_sp        .equ $+1
                 lxi sp, 0
                 ret
                 
@@ -468,7 +470,7 @@ dzx0_create:
                 dad h
                 dad d           ; hl = &context[a]
                 shld crea_ctx+1 ; will save task sp here
-crea_loadsp     equ $+1
+crea_loadsp     .equ $+1
                 lxi sp, 0
 crea_b:         lxi b, 0
 crea_d:         lxi d, 0
@@ -483,7 +485,7 @@ crea_d:         lxi d, 0
                 lxi h, 0
                 dad sp
 crea_ctx:       shld 0                  ; save sp in task context
-dzx0_create_sp  equ $+1
+dzx0_create_sp  .equ $+1
                 lxi sp, 0
                 ret                     ; this is a normal return
 
@@ -618,50 +620,50 @@ dzx0_ded
 
 ; task stacks
 
-stacks          
-stack_00        equ stacks
-stack_01        equ stack_00 + task_stack_size
-stack_02        equ stack_01 + task_stack_size
-stack_03        equ stack_02 + task_stack_size
-stack_04        equ stack_03 + task_stack_size
-stack_05        equ stack_04 + task_stack_size
-stack_06        equ stack_05 + task_stack_size
-stack_07        equ stack_06 + task_stack_size
-stack_08        equ stack_07 + task_stack_size
-stack_09        equ stack_08 + task_stack_size
-stack_10        equ stack_09 + task_stack_size
-stack_11        equ stack_10 + task_stack_size
-stack_12        equ stack_11 + task_stack_size
-stack_13        equ stack_12 + task_stack_size
-stack_14        equ stack_13 + task_stack_size
-stack_15        equ stack_14 + task_stack_size
-stacks_end      equ stack_15 + task_stack_size
+stacks:          
+stack_00        .equ stacks
+stack_01        .equ stack_00 + task_stack_size
+stack_02        .equ stack_01 + task_stack_size
+stack_03        .equ stack_02 + task_stack_size
+stack_04        .equ stack_03 + task_stack_size
+stack_05        .equ stack_04 + task_stack_size
+stack_06        .equ stack_05 + task_stack_size
+stack_07        .equ stack_06 + task_stack_size
+stack_08        .equ stack_07 + task_stack_size
+stack_09        .equ stack_08 + task_stack_size
+stack_10        .equ stack_09 + task_stack_size
+stack_11        .equ stack_10 + task_stack_size
+stack_12        .equ stack_11 + task_stack_size
+stack_13        .equ stack_12 + task_stack_size
+stack_14        .equ stack_13 + task_stack_size
+stack_15        .equ stack_14 + task_stack_size
+stacks_end      .equ stack_15 + task_stack_size
 
 ; array of task sp: context[i] = task's stack pointer
-context         equ stacks_end
-context_end     equ context + 2 * n_tasks
+context         .equ stacks_end
+context_end     .equ context + (2 * n_tasks)
 
-context_ptr:    equ context_end
-bss_end         equ context_ptr + 2
+context_ptr     .equ context_end
+bss_end         .equ context_ptr + 2
 
 
 ; buffers for unpacking the streams, must be aligned to 256 byte boundary
 
-buffer00        equ     0xff00 & bss_end + 256        
-buffer01        equ     0xff00 & bss_end + 256 * 2        
-buffer02        equ     0xff00 & bss_end + 256 * 3
-buffer03        equ     0xff00 & bss_end + 256 * 4        
-buffer04        equ     0xff00 & bss_end + 256 * 5
-buffer05        equ     0xff00 & bss_end + 256 * 6        
-buffer06        equ     0xff00 & bss_end + 256 * 7
-buffer07        equ     0xff00 & bss_end + 256 * 8        
-buffer08        equ     0xff00 & bss_end + 256 * 9
-buffer09        equ     0xff00 & bss_end + 256 * 10        
-buffer10        equ     0xff00 & bss_end + 256 * 11
-buffer11        equ     0xff00 & bss_end + 256 * 12       
-buffer12        equ     0xff00 & bss_end + 256 * 13
-buffer13        equ     0xff00 & bss_end + 256 * 14       
+buffer00        .equ     0ff00h & bss_end + (256    ) 
+buffer01        .equ     0ff00h & bss_end + (256 * 2)     
+buffer02        .equ     0ff00h & bss_end + (256 * 3)
+buffer03        .equ     0ff00h & bss_end + (256 * 4)     
+buffer04        .equ     0ff00h & bss_end + (256 * 5)
+buffer05        .equ     0ff00h & bss_end + (256 * 6)     
+buffer06        .equ     0ff00h & bss_end + (256 * 7)
+buffer07        .equ     0ff00h & bss_end + (256 * 8)     
+buffer08        .equ     0ff00h & bss_end + (256 * 9)
+buffer09        .equ     0ff00h & bss_end + (256 * 10)      
+buffer10        .equ     0ff00h & bss_end + (256 * 11)
+buffer11        .equ     0ff00h & bss_end + (256 * 12)     
+buffer12        .equ     0ff00h & bss_end + (256 * 13)
+buffer13        .equ     0ff00h & bss_end + (256 * 14)     
 
-gigachad_end    equ     0xff00 & bss_end + 256 * 15
+gigachad_end    .equ     0ff00h & bss_end + (256 * 15)
 
 	.end

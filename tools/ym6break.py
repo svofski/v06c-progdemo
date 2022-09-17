@@ -116,4 +116,6 @@ with open(incname, "w") as inc:
         with open(zname, "rb") as f:
             dbname = label + ("%02d" % i)
             data = f.read()
-            inc.write(f'{dbname}: db ' +  ",".join("$%02x" % x for x in data) + "\n")
+            inc.write(f'{dbname}:')
+            for line in chunker(data, 32):
+                inc.write(f'\t.db ' +  ",".join("$%02x" % x for x in line) + "\n")

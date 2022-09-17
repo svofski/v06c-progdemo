@@ -34,10 +34,11 @@ spiralpal3=$name3.pal
 spiralpiz3=$name3.piz
 
 # lion to stuff in place of gigachad16 buffers
-tools/png2db-arzak.py -mode spiralbox rousseau-crop.png
-cat rousseau-crop.pal rousseau-crop.pic >tmp/lion.pic
-tools/salvador.exe -classic -w 256 tmp/lion.pic lion.piz && ls -l lion.piz
-xxd -i lion.piz | awk '/0x/ { printf("db %s\n", $0); }' > lion.inc
+tools/png2db-arzak.py -mode spiralbox -zdb rousseau-crop.png
+mv rousseau-crop.inc lion.inc
+#cat rousseau-crop.pal rousseau-crop.pic >tmp/lion.pic
+#tools/salvador.exe -classic -w 256 tmp/lion.pic lion.piz && ls -l lion.piz
+#xxd -i lion.piz | awk '/0x/ { printf("db %s\n", $0); }' > lion.inc
 
 $PASM grad.asm -o grad.bin
 
