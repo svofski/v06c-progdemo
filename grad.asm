@@ -28,17 +28,35 @@
 
 		call	Cls
 
+                lxi d, stack_00       ; lion picture is stuffed in gigachad area
+                call picstream_init2
+
+                call install_interrupt ; install interrupt but not gigachad
+                jmp picture_again
+                ;call gigachad_disable ; but we don't 
+                ;mvi a, 1
+                ;sta int_colorset_f
+                ;ei
+                ;hlt
+                ;jmp 
+
+
+
 Restart:
 		lxi sp,$100
                 xra a
                 sta int_colorset_f    ; don't set palette
                 sta restart_stream_f  ; don't restart stream
 		call Cls
+start_loop:
                 call install_gigachad ; init and install gigachad16 music player
                 call stream_dzx0_exit ; reset streaming dzx0
                 
                 ; restart from the beginning of the picture stream
 stream_again:
+                lda gigachad_frame
+                cpi $c9
+                jz start_loop
                 call picstream_init   ; init picture zx0 stream
 
                 ; show next picture from the stream
@@ -442,6 +460,7 @@ colorset1:
 		
 picstream_init:
                 lxi d, pic
+picstream_init2:
                 lxi b, dzx0_Buffer
                 push b
                 call stream_dzx0
@@ -480,7 +499,7 @@ install_gigachad:
                 call gigachad_init
                 call gigachad_enable
                 call gigachad_precharge
-
+install_interrupt:
                 mvi a, $c3
                 sta $38
                 lxi h, interrupt
@@ -530,6 +549,7 @@ song_1:         dw songA_00, songA_01, songA_02, songA_03, songA_04, songA_05, s
 
 .include gigachad16.inc
 
+.include lion.inc
                 .org gigachad_end
                 .db 0
 pal:
