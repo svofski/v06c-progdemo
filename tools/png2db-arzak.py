@@ -9,9 +9,14 @@ from utils import *
 from base64 import b64encode
 import array
 
+TOOLS = './tools/'
+SALVADOR = TOOLS + 'salvador.exe'
+workdir = 'tmp/'
+
 VARCHUNK=2
 LEFTOFS=4
 mode='varblit'
+save_as_zdb = False # spiralbox special: pal + pic | salvador
 
 # if cell is empty and all cells in this column above it are empty
 #       check cell directly below and if it is not empty consider current one not empty as well
@@ -153,6 +158,8 @@ try:
             if sys.argv[i] == '-mode':
                 mode = sys.argv[i+1]
                 i += 1
+            if sys.argv[i] == '-zdb':
+                save_as_zdb = True
         elif foreground == '':
             foreground = sys.argv[i]
         elif glitchframe == '':
@@ -428,16 +435,34 @@ elif mode == 'spiralbox':
     # group pairs of pixels
     prog = [(x<<4) | y for x, y in chunker(prog_pixels, 2)]
 
+    if pal != None:
+        pal.reverse()
+
     f = open(origname + '.pic', 'wb')
     f.write(bytes(prog))
     f.close()
 
-    pal.reverse()
     if pal != None:
         f = open(origname + '.pal', 'wb')
         f.write(bytes(pal))
         f.close()
 
-    
+    # merge pal + pic, zx0 using salvador and save as .inc 
+    if save_as_zdb:
+        workfile = workdir + origname + '.pic'
+        workfilez = workfile + '.z'
+        
+        f = open(workdir + origname + '.pic', 'wb')
+        f.write(bytes(pal))
+        f.write(bytes(prog))
+        f.close()
 
+        with Popen([SALVADOR, "-v", "-classic", "-w 256", workfile, workfilez], stdout=PIPE) as proc:
+            print(proc.stdout.read())
 
+        with open(workfilez, 'rb') as fz:
+            dataz = fz.read()
+
+        with open(origname + '.inc', 'w') as f:
+            for line in chunker(dataz, 32):
+                f.write(f'\tdb {",".join(["$%02x" % x for x in line])}\n')

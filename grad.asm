@@ -552,7 +552,6 @@ song_1:         dw songA_00, songA_01, songA_02, songA_03, songA_04, songA_05, s
 .include lion.inc
                 .org gigachad_end
                 .db 0
-pal:
-pic		.equ pal+16
+pic		.equ $
 
 		.end

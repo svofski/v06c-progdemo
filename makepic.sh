@@ -47,4 +47,4 @@ $PNG2DB -mode spiralbox $SRCPIC3
 
 cat $spiralpal $spiralpic $spiralpal2 $spiralpic2 $spiralpal3 $spiralpic3 > tmp/pic2.pic
 $SALVADOR -w 256 -classic tmp/pic2.pic $spiralpiz
-cat grad.bin $spiralpal $spiralpiz >$name.rom
+cat grad.bin $spiralpiz >$name.rom
