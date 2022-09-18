@@ -533,22 +533,27 @@ draw_tile_1_L1:
                 inr d
                 ret
 
-
 Cls:
-		lxi	h,08000h
-		xra a
-ClrScr:
-		mov m,a
-		inx h
-		mov m,a
-		inx h
-		mov m,a
-		inx h
-		mov m,a
-		inx h
-		cmp h
-		jnz ClrScr
-		ret
+                push b
+                xra a
+                mov l, a
+Cls2_L0:
+                lxi b, $a0c0
+                lxi d, $e080
+Cls2_L1:
+                mov h, e \ inr e
+                mov m, a 
+                mov h, b \ inr b
+                mov m, a
+                mov h, c \ inr c
+                mov m, a
+                mov h, d \ inr d
+                mov m, a
+                jnz Cls2_L1
+                inr l \ inr l \ inr l
+                jnz Cls2_L0
+                pop b
+                ret
 
                 ; set palette directly from picstream
                 ; h -> pic
