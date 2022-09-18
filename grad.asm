@@ -399,8 +399,8 @@ draw_tile_1_L1:
                 inr c
                 cz picstream_fetch
                 push b
-                call setpixel
-                call setpixel
+                call setpixel1
+                call setpixel1
                 pop b
 
                 ldax b
@@ -408,8 +408,8 @@ draw_tile_1_L1:
                 cz picstream_fetch
                 
                 push b
-                call setpixel
-                call setpixel
+                call setpixel1
+                call setpixel1
                 pop b
                 pop psw
                 sui 4
