@@ -19,6 +19,7 @@
 		di
 		xra	a
 		out	10h
+
 		lxi	sp,$100
 		mvi	a,0C3h
 		sta	0
@@ -172,21 +173,42 @@ stax8:
                 stax d \ dcr e \ stax d \ dcr e \ stax d \ dcr e \ stax d
                 mov e, l
                 ret
-
 stax4:
                 mov l, e
                 stax d \ dcr e \ stax d \ dcr e \ stax d \ dcr e \ stax d
                 mov e, l
                 ret
 
+                .org     0ff00h & $ + 256
+setpixel1tab:
+				.dw setpixel0000
+				.dw setpixel0001
+				.dw setpixel0010
+				.dw setpixel0011
 
+				.dw setpixel0100
+				.dw setpixel0101
+				.dw setpixel0110
+				.dw setpixel0111
+
+				.dw setpixel1000
+				.dw setpixel1001
+				.dw setpixel1010
+				.dw setpixel1011
+
+				.dw setpixel1100
+				.dw setpixel1101
+				.dw setpixel1110
+				.dw setpixel1111
+				
                 ; unrolled version of setpixel for 1-pixel setpixels
                 ; de = tile addr
                 ; hl = ptr to yx offsets in current tile 
                 ; a = XXXXYYYY  ; XXXX =color pixel to set
                 ; returns a = YYYY____  (next pixel in high nybble of A)
-setpixel1:       
+setpixel1:
                 push d
+				rlc\ rlc\ rlc\ rlc
                 ;push b       ; stream buffer ptr caller-saved
                 mov b, a      ; b = saved a, c free 
 
@@ -199,48 +221,141 @@ setpixel1:
                 inx h         ; hl -> next in tile sequence
 
                 push h        ; save hl
-                mov h, b      ; h = pixel bits XXXXYYYY
+;                mov h, b      ; h = pixel bits XXXXYYYY
 
-                mov a, c
-                cma
-                mov b, a      ; b = clear mask
+				mvi a,1111b
+				ana b
+				add a
+				mov l,a
+				mvi h,setpixel1tab>>8
+				mov a,m
+				inx h
+				mov h,m
+				mov l,a
+				
+				ldax d
+				ora c
+				pchl
 
-                ldax d        ; screen $8000
-                ana b
-                dad h
-                jnc $+4
-                ora c
-                stax d
-                mvi a, $20 \ add d \ mov d, a ; screen $a000
-
-                ldax d
-                ana b
-                dad h
-                jnc $+4
-                ora c
-                stax d
-                mvi a, $20 \ add d \ mov d, a ; screen $c000
-
-                ldax d
-                ana b
-                dad h
-                jnc $+4
-                ora c
-                stax d
-                mvi a, $20 \ add d \ mov d, a ; screen $e000
-
-                ldax d
-                ana b
-                dad h
-                jnc $+4
-                ora c
-                stax d
-
-                mov a, h
+setpixel0000:
+				xra c
+setpixel1000:
+				stax d
+				xchg
+				lxi d,8192
+				dad d
+				mov a,m\ ora c\ xra c\ mov m,a\ dad d
+				mov a,m\ ora c\ xra c\ mov m,a\ dad d
+				mov a,m\ ora c\ xra c\ mov m,a
                 pop h
+				mov a,b
                 pop d
                 ret
 
+setpixel0001:
+                xra c
+setpixel1001:
+				stax d
+				xchg
+				lxi d,8192
+				dad d
+				mov a,m\ ora c\ xra c\ mov m,a\ dad d
+				mov a,m\ ora c\ xra c\ mov m,a\ dad d
+				mov a,m\ ora c\ mov m,a
+                pop h
+				mov a,b
+                pop d
+                ret
+
+setpixel0010:
+                xra c
+setpixel1010:
+				stax d
+				xchg
+				lxi d,8192
+				dad d
+				mov a,m\ ora c\ xra c\ mov m,a\ dad d
+				mov a,m\ ora c\ mov m,a\ dad d
+				mov a,m\ ora c\ xra c\ mov m,a
+                pop h
+				mov a,b
+                pop d
+                ret
+
+setpixel0011:
+                xra c
+setpixel1011:
+				stax d
+				xchg
+				lxi d,8192
+				dad d
+				mov a,m\ ora c\ xra c\ mov m,a\ dad d
+				mov a,m\ ora c\ mov m,a\ dad d
+				mov a,m\ ora c\ mov m,a
+                pop h
+				mov a,b
+                pop d
+                ret
+
+setpixel0100:
+				xra c
+setpixel1100:
+                stax d
+				xchg
+				lxi d,8192
+				dad d
+				mov a,m\ ora c\ mov m,a\ dad d
+				mov a,m\ ora c\ xra c\ mov m,a\ dad d
+				mov a,m\ ora c\ xra c\ mov m,a
+                pop h
+				mov a,b
+                pop d
+                ret
+
+setpixel0101:
+                xra c
+setpixel1101:
+                stax d
+				xchg
+				lxi d,8192
+				dad d
+				mov a,m\ ora c\ mov m,a\ dad d
+				mov a,m\ ora c\ xra c\ mov m,a\ dad d
+				mov a,m\ ora c\ mov m,a
+                pop h
+				mov a,b
+                pop d
+                ret
+
+setpixel0110:
+				xra c
+setpixel1110:
+                stax d
+				xchg
+				lxi d,8192
+				dad d
+				mov a,m\ ora c\ mov m,a\ dad d
+				mov a,m\ ora c\ mov m,a\ dad d
+				mov a,m\ ora c\ xra c\ mov m,a
+                pop h
+				mov a,b
+                pop d
+                ret
+
+setpixel0111:
+				xra c
+setpixel1111:
+                stax d
+				xchg
+				lxi d,8192
+				dad d
+				mov a,m\ ora c\ mov m,a\ dad d
+				mov a,m\ ora c\ mov m,a\ dad d
+				mov a,m\ ora c\ mov m,a
+                pop h
+				mov a,b
+                pop d
+                ret
 
 ; последовательность обхода тайла
 ;   0  18   6  27   3  54  15  63
@@ -476,23 +591,25 @@ picstream_getbyte:
                 rnz
 picstream_fetch:
                 push psw
-                push b
+;                push b
                 push d
                 push h
                 call stream_dzx0
                 jc picstream_gb_L1
                 mvi a, 1
                 sta restart_stream_f
+				mvi c,0
 picstream_gb_L1:
                 pop h
                 pop d
-                pop b
+;                pop b
                 pop psw
                 ret
 picstream_bc:   .dw 0
 
-                .org     0ff00h & $ + 256
-dzx0_Buffer:    .ds 256
+;                .org     0ff00h & $ + 256
+;dzx0_Buffer:    .ds 256
+dzx0_Buffer:    .equ 07F00h
 
 
                 ; init gigachad, install interrupt handler
