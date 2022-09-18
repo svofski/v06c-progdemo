@@ -14,7 +14,8 @@ SALVADOR = TOOLS + 'salvador.exe'
 workdir = 'tmp/'
 
 VARCHUNK=2
-LEFTOFS=4
+LEFTOFS=0
+TOPOFS=0
 mode='varblit'
 save_as_zdb = False # spiralbox special: pal + pic | salvador
 
@@ -150,6 +151,9 @@ try:
             if sys.argv[i] == '-leftofs':
                 LEFTOFS = int(sys.argv[i+1])
                 i += 1
+            if sys.argv[i] == '-topofs':
+                TOPOFS = int(sys.argv[i+1])
+                i += 1
             if sys.argv[i] == '-labels':
                 userlabels = [s for s in sys.argv[i+1].split(',')]
                 for n, l in enumerate(userlabels):
@@ -258,7 +262,9 @@ def sequence_pic(pic):
     for l in m:
         print(''.join([f'{x:4}' for x in l]))
 
-    result = []
+    x0 = LEFTOFS//8
+    y0 = 255-TOPOFS
+    result = [x0, y0, nc // 8, nr // 8]
     # 0
     for tl in range(0, nr, 8):
         for tc in range(0, nc, 8):
@@ -298,9 +304,13 @@ def sequence_pic(pic):
 
     return result             
 
-def verify_sequenced_pic(pic, nr, nc, palette):
+def verify_sequenced_pic(piq, palette):
     pseq = []
     progseq(pseq)
+
+    nc = piq[2] * 8
+    nr = piq[3] * 8
+    pic = piq[4:]
 
     m = [[0 for x in range(nc)] for y in range(nr)] 
     
@@ -428,12 +438,13 @@ elif mode == 'ivagor4bpp':
     #print('len(result)=', len(result))
 
 elif mode == 'spiralbox':
-    prog_pixels = sequence_pic(pic)
+    prog_pic = sequence_pic(pic)
 
-    verify_sequenced_pic(prog_pixels, 256, 256, pngpal)
+    verify_sequenced_pic(prog_pic, pngpal)
 
     # group pairs of pixels
-    prog = [(x<<4) | y for x, y in chunker(prog_pixels, 2)]
+    prog_pixels = [(x<<4) | y for x, y in chunker(prog_pic[4:], 2)]
+    prog = prog_pic[0:4] + prog_pixels
 
     if pal != None:
         pal.reverse()

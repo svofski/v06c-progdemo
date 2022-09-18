@@ -153,7 +153,7 @@ gigachad_wrap_flag:
                 inr m
 
                 ; USER_CALLS_AY_SEND
-                ;call ay_send
+                call ay_send_vi53
 
                 ; all tasks finished?
                 lda dzx0_finish_ctr

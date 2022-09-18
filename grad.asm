@@ -9,7 +9,7 @@
 
 
 ; unroll single-pixel setpixel for slight speedup
-#define UNROLL_SETPIXEL1
+;#define UNROLL_SETPIXEL1
 
 #ifdef PASM
                 .tape v06c-rom
@@ -28,6 +28,7 @@
                 mvi a, $c9
                 sta $38
 
+                call ayvi53_stfu
 		call	Cls
 
                 lxi d, stack_00       ; lion picture is stuffed in gigachad area
@@ -35,17 +36,12 @@
 
                 call install_interrupt ; install interrupt but not gigachad
                 jmp picture_again
-                ;call gigachad_disable ; but we don't 
-                ;mvi a, 1
-                ;sta int_colorset_f
-                ;ei
-                ;hlt
-                ;jmp 
 
 
 
 Restart:
 		lxi sp,$100
+                call ayvi53_stfu
                 xra a
                 sta int_colorset_f    ; don't set palette
                 sta restart_stream_f  ; don't restart stream
@@ -63,6 +59,7 @@ stream_again:
 
                 ; show next picture from the stream
 picture_again:  ; it starts with 16 palette bytes
+                call Cls
                 di
                 mvi a, $ff
                 sta int_colorset_f    ; colorset_f = true
@@ -74,167 +71,7 @@ picture_again:  ; it starts with 16 palette bytes
                 lhld picstream_bc     ; restore bc (updated by interrupt)
                 mov b, h
                 mov c, l
-
-                ;
-                ; progressive refinement
-                ;
-
-                ; first refinement: 8x8 tile size (32x32 tiles)
-                lxi d, $80ff  ; $8000 top row
-                
-                ; setpixel sets 8x8 pixels
-                call setpixel_set8
-t8_L1
-                call picstream_getbyte
-                lxi h, pseq_yx        ; &pseq_yx[0] start of prog sequence
-                push b
-                call setpixel
-                inr d
-                lxi h, pseq_yx
-                call setpixel
-                pop b
-                inr d                 ; column++
-                mvi a, $a0            ; column == 0xa0?
-                cmp d
-                jnz t8_L1             ; no, continue
-                mvi d, $80            ; reset column to 0
-                mvi a, -8             ; advance 8 pixels down
-                add e                 
-                jnc t8_done           ; do the next line
-                mov e, a
-                jmp t8_L1
-t8_done:
-
-                ; setpixel sets 4x4 pixels
-                call setpixel_set4
-
-                lxi d, $80ff
-t4_L1:
-                call picstream_getbyte
-                lxi h, pseq_yx + 1*2  ; &pseq_yx[1] 4x4 prog sequence (3/tile)
-                push b
-                call setpixel     ; 1
-                call setpixel     ; 2
-                pop b
-                call picstream_getbyte
-                push b
-                call setpixel     ; 3
-                inr d
-                lxi h, pseq_yx + 1*2
-                call setpixel     ; 1
-                pop b
-                call picstream_getbyte
-                push b
-                call setpixel     ; 2
-                call setpixel     ; 3
-                pop b
-
-                inr d
-                mvi a, $a0
-                cmp d
-                jnz t4_L1
-                mvi d, $80
-                mvi a, -8
-                add e
-                jnc t4_done
-                mov e, a
-                jmp t4_L1
-
-t4_done:
-
-                ; setpixel sets 2x2 pixels
-                call setpixel_set2
-                
-                lxi d, $80ff
-t2_L0:
-                lxi h, pseq_yx + 4*2  ; &pseq_yx[4] 2x2 prog sequence (12/tile)
-                mvi a, 12
-t2_L1:
-                push psw
-                call picstream_getbyte
-                push b
-                call setpixel
-                call setpixel
-                pop b
-                pop psw
-                sui 2
-                jnz t2_L1
-
-                inr d
-                mvi a, $a0
-                cmp d
-                jnz t2_L0
-                mvi d, $80
-                mvi a, -8
-                add e
-                jnc tile2_done
-                mov e, a
-                jmp t2_L0
-
-tile2_done:
-
-                ; final refinement, 49152 single pixels
-#ifndef UNROLL_SETPIXEL1
-                call setpixel_set1
-#endif
-
-                lxi d, $80ff
-tile1_L0:
-                lxi h, pseq_yx + 16*2 ; &pseq_yx[16] 1x1 prog sequence (48/tile)
-                mvi a, 48
-tile1_L1:
-                push psw
-
-                ;call picstream_getbyte  
-                ldax b                ; inline getbyte + fetch
-                inr c
-                cz picstream_fetch
-                ;--
-
-                push b
-#ifdef UNROLL_SETPIXEL1
-                call setpixel1   ; set pixel in high nybble of A
-                call setpixel1   ; low nybble
-#else
-                call setpixel
-                call setpixel
-#endif
-                pop b
-
-                ;call picstream_getbyte
-                ldax b                ; inline getbyte + fetch
-                inr c
-                cz picstream_fetch
-                ;--
-
-                push b
-#ifdef UNROLL_SETPIXEL1
-                call setpixel1   ; set pixel in high nybble of A
-                call setpixel1   ; low nybble
-#else
-                call setpixel
-                call setpixel
-#endif
-                pop b
-                pop psw
-                sui 4
-                jnz tile1_L1
-
-                ; next column
-                inr d
-                mvi a, $a0
-                cmp d
-                jnz tile1_L0
-
-                ; next bitplane
-                mvi d, $80
-                mvi a, -8
-                add e
-                jnc tile1_done
-                mov e, a
-                jmp tile1_L0
-tile1_done
-                ; picture finished
+                call putpic_v2
 
                 ; wait 1 sec before moving on to the next picture
                 mvi a, 50
@@ -422,16 +259,180 @@ pseq_yx:        .db 0,255,                   ; 8 - толстая маска
                 .db 6,$c0, 6,$30, 4,$30,     
                 .db 6,$0c, 6,$03, 4,$03, 
                 .db 2,$0c, 2,$03, 0,$03, 
-                .db 1,128, 1,64, 0,64, 3,128, 3,64, 2,64, 3,32, 3,16, 2,16, 1,32, 1,16, 0,16, 5,128, 5,64, 4,64, 7,128, 7,64, 6,64, 7,32, 7,16, 6,16, 5,32, 5,16, 4,16, 5,8, 5,4, 4,4, 7,8, 7,4, 6,4, 7,2, 7,1, 6,1, 5,2, 5,1, 4,1, 1,8, 1,4, 0,4, 3,8, 3,4, 2,4, 3,2, 3,1, 2,1, 1,2, 1,1, 0,1        ; 1 - восьмушки
+                .db 1,128, 1,64, 0,64, 3,128, 3,64, 2,64, 3,32, 3,16, 2,16, 1,32, 1,16, 0,16, 5,128, 5,64, 4,64, 7,128, 7,64, 6,64, 7,32, 7,16, 6,16, 5,32, 5,16, 4,16, 5,8, 5,4, 4,4, 7,8, 7,4, 6,4, 7,2, 7,1, 6,1, 5,2, 5,1, 4,1, 1,8, 1,4, 0,4, 3,8, 3,4, 2,4, 3,2, 3,1, 2,1, 1,2, 1,1, 0,1        ; 1 - возьмужки
+
+putpic_v2:
+                call picstream_getbyte        ; x0
+                adi $80
+                sta ppv_x0
+                call picstream_getbyte        ; y0
+                sta ppv_y0
+                call picstream_getbyte        ; width (8)
+                mov d, a
+                lda ppv_x0
+                add d     ; b = end column
+                sta ppv_xend
+                call picstream_getbyte        ; height (8)
+                ral \ ral \ ral \ ani $f8
+                mov d, a
+                lda ppv_y0
+                sub d
+                sta ppv_yend
+
+                lxi h, tile_vectors
+                shld tile_vec_p
+                call setpixel_set8
+                lxi h, draw_tile_8
+                shld draw_tile_vec
+
+ppv_refine_loop:               
+ppv_y0          .equ $+1
+                mvi e, $ff    ; top
+ppv_yloop:
+ppv_x0          .equ $+1
+                mvi d, $80    ; left
+ppv_xloop:
+draw_tile_vec   .equ $+1
+                call draw_tile_8    ; may draw 1 or 2 tiles
+ppv_xend        .equ $+1
+                mvi a, $a0
+                cmp d
+                jnz ppv_xloop
+                mvi a, -8
+                add e
+ppv_yend        .equ $+1
+                cpi $ff
+                mov e, a
+                jnz ppv_yloop
+
+                lhld tile_vec_p
+                mov e, m
+                inx h
+                mov d, m
+                inx h
+                mov a, e
+                ora d
+                jz ppv_done
+
+                ; de = switch hook
+                push h
+                lxi h, ppv_ret_from_hook
+                push h
+                xchg
+                pchl
+ppv_ret_from_hook:
+                pop h
+                mov e, m    ; load draw_tile hook
+                inx h
+                mov d, m
+                inx h
+
+                shld tile_vec_p
+                xchg
+                shld draw_tile_vec
+                jmp ppv_refine_loop
+ppv_done:
+                ret
+
+tile_vectors:   .dw setpixel_set4, draw_tile_4, 
+                .dw setpixel_set2, draw_tile_2, 
+                .dw setpixel_set1, draw_tile_1, 
+                .dw 0
+tile_vec_p:     .dw 0
+
+draw_tile_8:
+                call picstream_getbyte
+                lxi h, pseq_yx
+                push b
+                call setpixel
+                inr d
+                lxi h, pseq_yx
+                call setpixel
+                pop b
+                inr d
+                ret
+
+draw_tile_4:
+                call picstream_getbyte
+                lxi h, pseq_yx + (1*2)  ; &pseq_yx[1] 4x4 prog sequence (3/tile)
+                push b
+                call setpixel     ; 1
+                call setpixel     ; 2
+                pop b
+                call picstream_getbyte
+                push b
+                call setpixel     ; 3
+                inr d
+                lxi h, pseq_yx + (1*2)
+                call setpixel     ; 1
+                pop b
+                call picstream_getbyte
+                push b
+                call setpixel     ; 2
+                call setpixel     ; 3
+                pop b
+                inr d
+                ret
+
+draw_tile_2:
+                lxi h, pseq_yx + (4*2)
+                mvi a, 12
+draw_tile_2_L1:
+                push psw
+                call picstream_getbyte
+                push b
+                call setpixel
+                call setpixel
+                pop b
+                pop psw
+                sui 2
+                jnz draw_tile_2_L1                
+                inr d
+                ret
+
+draw_tile_1:
+                lxi h, pseq_yx + (16*2)
+                mvi a, 48
+draw_tile_1_L1:
+                push psw
+                ldax b
+                inr c
+                cz picstream_fetch
+                push b
+                call setpixel
+                call setpixel
+                pop b
+
+                ldax b
+                inr c
+                cz picstream_fetch
+                
+                push b
+                call setpixel
+                call setpixel
+                pop b
+                pop psw
+                sui 4
+                jnz draw_tile_1_L1
+
+                inr d
+                ret
+
 
 Cls:
 		lxi	h,08000h
 		xra a
 ClrScr:
-		mov	m,a
-		inx	h
-		cmp	h
-		jnz	ClrScr
+		mov m,a
+		inx h
+		mov m,a
+		inx h
+		mov m,a
+		inx h
+		mov m,a
+		inx h
+		cmp h
+		jnz ClrScr
 		ret
 
                 ; set palette directly from picstream
@@ -528,7 +529,7 @@ int_colorset_f  .equ $+1
                 sta int_colorset_f  ; and reset colorset flag
 interrupt_L1:
                 call gigachad_frame ; update music frame
-                call ay_send_vi53   ; send to vi53
+                ;call ay_send_vi53   ; send to vi53
                 pop h
                 pop d
                 pop b
