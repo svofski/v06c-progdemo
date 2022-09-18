@@ -1,6 +1,8 @@
 ; -----------------------------------------------------------------------------
 ; ZX0 8080 stream chunk256 decoder by Ivan Gorodetsky - OLD FILE FORMAT v1 
 ; Based on ZX0 z80 decoder by Einar Saukas
+; v1 (2022-09-14) - 179 bytes forward / 181 bytes backward
+; v2 (2022-09-18) - 179 bytes forward / 181 bytes backward (slightly faster, preserve BC between chunks) 
 ; -----------------------------------------------------------------------------
 ; Parameters (forward):
 ;   DE: source address (compressed data)
@@ -10,12 +12,16 @@
 ;   DE: last source address (compressed data)
 ;   BC: destination buffer (decompressing)
 ; -----------------------------------------------------------------------------
-; compress forward with <-classic -w256> options
+; On exit:
+;   CY=1 - decompression not finished
+; -----------------------------------------------------------------------------
+; compress forward with <-classic -w256> options (salvador)
 ;
-; compress backward with <-b -classic -w256> options
+; compress backward with <-b -classic -w256> options (salvador)
 ;
 ; Compile with The Telemark Assembler (TASM) 3.2
 ; ----------------------------------------------------------------------------- 
+
 
 ;#define BACKWARD
 
@@ -38,17 +44,17 @@ stream_dzx0:
 		jmp stream_dzx0_Init
 stream_dzx0_Init:
 		mov a,b
-		sta stream_dzx0_SetBuf+1
+		sta stream_dzx0_SetBC+2
 		lxi h,stream_dzx0_GetChunk
 		shld stream_dzx0+1
 #ifdef BACKWARD
-		lxi h,1
-		shld stream_dzx0_offset+1
-		dcr l
+		mvi a,1
+		sta stream_dzx0_offset+1
+		lxi h,0
 #else
-		lxi h,0FFFFh
-		shld stream_dzx0_offset+1
-		inx h
+		mvi a,0FFh
+		sta stream_dzx0_offset+1
+		lxi h,0
 #endif
 		mvi a,080h
 stream_dzx0_literals:
@@ -57,7 +63,7 @@ stream_dzx0_literals:
 stream_dzx0_ldir1_1:
 		ldax d
 		stax b
-		inx d ;NEXT_DE
+		inx d ; NEXT_DE
 		inr c ;NEXT_BC
 		jnz stream_dzx0_ldir1_3
 		shld stream_dzx0_SetHL+1
@@ -81,18 +87,18 @@ stream_dzx0_ldir1_2:
 stream_dzx0_copy:
 		xchg
 		shld stream_dzx0_copy2+1
-stream_dzx0_offset:
-		lxi h,0
-		dad b
-stream_dzx0_SetBuf:
-		mvi h,0
 		xchg
 		sta stream_dzx0_ldir2_2+1
+stream_dzx0_offset:
+		mvi a,0
+		add c
+		mov e,a
+		mov d,b
 stream_dzx0_ldir2_1:
 		ldax d
 		stax b
 		inr e ; NEXT_DElo
-		inr c ;NEXT_BC
+		inr c ; NEXT_BC
 		jnz stream_dzx0_ldir2_3
 		shld stream_dzx0_SetHL+1
 		xchg
@@ -125,17 +131,15 @@ stream_dzx0_new_offset:
 		xra a
 		sub l
 		jz stream_dzx0_exit
-		push h
 #endif
-		rar\ mov h,a
+		rar
 		ldax d
-		rar\ mov l,a
+		rar
 		inx d ; NEXT_DE
 #ifdef BACKWARD
-		inx h
+		inr a
 #endif
-		shld stream_dzx0_offset+1
-		pop h
+		sta stream_dzx0_offset+1
 		mov a,h
 		lxi h,1
 #ifdef BACKWARD
@@ -175,6 +179,8 @@ stream_dzx0_SetHL:
 		lxi h,0
 stream_dzx0_SetDE:
 		lxi d,0
+stream_dzx0_SetBC:
+		lxi b,0
 stream_dzx0_SetJmp2:
 		jmp 0
 
