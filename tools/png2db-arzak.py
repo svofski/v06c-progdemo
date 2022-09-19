@@ -235,25 +235,7 @@ def progseq(result, oy = 0, ox = 0, sz = 8):
 
     result.extend(sub2)
 
-def sequence_pic(pic):
-    nr = len(pic)
-    nc = len(pic[0])
-
-    pseq = []
-    progseq(pseq)
-
-    #print('pseq_yx:     db ', end='')
-    #for y,x in pseq:
-    #    print(f'{y},{128>>x}, ', end='')
-    #print()
-
-    # 0
-    # 3
-    # 3 * 4
-    # 3 * 16
-
-    # print(f'sequence_pic nr={nr} nc={nc} len pseq={len(pseq)}')
-
+def print_prog_square(pseq):
     m = [[0 for x in range(8)] for y in range(8)]
     for i,o in enumerate(pseq):
         m[o[0]][o[1]] = i
@@ -261,6 +243,19 @@ def sequence_pic(pic):
     # print the magic square
     for l in m:
         print(''.join([f'{x:4}' for x in l]))
+
+
+# simple progressive tile refinement
+def sequence_pic(pic):
+    nr = len(pic)
+    nc = len(pic[0])
+
+    pseq = []
+    progseq(pseq)
+
+    # print(f'sequence_pic nr={nr} nc={nc} len pseq={len(pseq)}')
+
+    print_prog_square(pseq)
 
     x0 = LEFTOFS//8
     y0 = 255-TOPOFS
@@ -345,6 +340,84 @@ def verify_sequenced_pic(piq, palette):
     f = open('verify.png', 'wb')
     w.write(f, m)
     f.close()
+
+#def set_tile(pimak, y, x, sz, value):
+#    for row in range(y, y + sz):
+#        pimak[row][x:x+sz] = value
+
+def xor_tile(pimak, y, x, sz, value):
+    for row in range(y, y + sz):
+        for col in range(x, x + sz):
+            pimak[row][col] ^= value
+
+# save diff relative to current state instead of absolute value
+def sequence_pic_xor(pic, palette):
+    nr = len(pic)
+    nc = len(pic[0])
+
+    pseq = []
+    progseq(pseq)
+
+    # print(f'sequence_pic nr={nr} nc={nc} len pseq={len(pseq)}')
+
+    # image accumulator, simulates progressive rendering on target platform 
+    pimak = [[0 for x in range(nc)] for y in range(nr)] 
+
+    x0 = LEFTOFS//8
+    y0 = 255-TOPOFS
+    result = [x0, y0, nc // 8, nr // 8]
+
+    # 0
+    for tl in range(0, nr, 8):
+        for tc in range(0, nc, 8):
+            result.append(pic[tl][tc])
+            xor_tile(pimak, tl, tc, 8, pic[tl][tc])
+
+    #print("first: ", len(result))
+
+    # 1-3   32*32*3
+    for tl in range(0, nr, 8):
+        for tc in range(0, nc, 8):
+            for i in range(1, 3+1):
+                y, x = pseq[i]
+                y += tl
+                x += tc
+                xorval = pic[y][x] ^ pimak[y][x]
+                result.append(xorval)
+                xor_tile(pimak, y, x, 4, xorval)
+
+    #print("second: ", len(result))
+
+    # 4..16
+    for tl in range(0, nr, 8):
+        for tc in range(0, nc, 8):
+            for i in range(4, 4 + 4*3):
+                y, x = pseq[i]
+                y += tl
+                x += tc
+                xorval = pic[y][x] ^ pimak[y][x]
+                result.append(xorval)
+                xor_tile(pimak, y, x, 2, xorval)
+
+    #print("third: ", len(result))
+    #print("sequence tail: ", pseq[4+4*3:])
+
+    for tl in range(0, nr, 8):
+        for tc in range(0, nc, 8):
+            for i in range(4 + 4*3, 64):
+                y, x = pseq[i]
+                y += tl
+                x += tc
+                xorval = pic[y][x] ^ pimak[y][x]
+                result.append(xorval)
+                xor_tile(pimak, y, x, 1, xorval)
+
+    w = png.Writer(nc, nr, palette=palette, bitdepth=4)
+    f = open('verify-xor.png', 'wb')
+    w.write(f, pimak);
+    f.close()
+
+    return result             
 
 
 if mode == 'varblit':
@@ -437,10 +510,12 @@ elif mode == 'ivagor4bpp':
         f.close()
     #print('len(result)=', len(result))
 
-elif mode == 'spiralbox':
-    prog_pic = sequence_pic(pic)
-
-    verify_sequenced_pic(prog_pic, pngpal)
+elif mode == 'spiralbox' or mode == 'spiralbox-xor':
+    if mode == 'spiralbox':
+        prog_pic = sequence_pic(pic)
+        verify_sequenced_pic(prog_pic, pngpal)
+    else:
+        prog_pic = sequence_pic_xor(pic, pngpal)
 
     # group pairs of pixels
     prog_pixels = [(x<<4) | y for x, y in chunker(prog_pic[4:], 2)]

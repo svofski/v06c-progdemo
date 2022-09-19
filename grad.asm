@@ -208,7 +208,7 @@ setpixel1tab:
                 ; returns a = YYYY____  (next pixel in high nybble of A)
 setpixel1:
                 push d
-		rlc\ rlc\ rlc\ rlc
+                rrc \ rrc \ rrc
                 ;push b       ; stream buffer ptr caller-saved
                 mov b, a      ; b = saved a, c free 
 
@@ -223,9 +223,8 @@ setpixel1:
                 push h        ; save hl
 ;                mov h, b      ; h = pixel bits XXXXYYYY
 
-		mvi a,1111b
-		ana b
-		add a
+                mvi a, 11110b
+                ana b
 		mov l,a
 		mvi h,setpixel1tab>>8
 		mov a,m
@@ -249,7 +248,7 @@ setpixel1000:
 		mov a,m\ ora c\ xra c\ mov m,a\ dad d
 		mov a,m\ ora c\ xra c\ mov m,a
                 pop h
-	        mov a,b
+	        mov a,b \ rrc
                 pop d
                 ret
 
@@ -264,7 +263,7 @@ setpixel1001:
 		mov a,m\ ora c\ xra c\ mov m,a\ dad d
 		mov a,m\ ora c\ mov m,a
                 pop h
-		mov a,b
+		mov a,b \ rrc
                 pop d
                 ret
 
@@ -279,7 +278,7 @@ setpixel1010:
 		mov a,m\ ora c\ mov m,a\ dad d
 		mov a,m\ ora c\ xra c\ mov m,a
                 pop h
-		mov a,b
+		mov a,b \ rrc
                 pop d
                 ret
 
@@ -294,7 +293,7 @@ setpixel1011:
 		mov a,m\ ora c\ mov m,a\ dad d
 		mov a,m\ ora c\ mov m,a
                 pop h
-		mov a,b
+		mov a,b \ rrc
                 pop d
                 ret
 
@@ -309,7 +308,7 @@ setpixel1100:
 		mov a,m\ ora c\ xra c\ mov m,a\ dad d
 		mov a,m\ ora c\ xra c\ mov m,a
                 pop h
-		mov a,b
+		mov a,b \ rrc
                 pop d
                 ret
 
@@ -324,7 +323,7 @@ setpixel1101:
 		mov a,m\ ora c\ xra c\ mov m,a\ dad d
 		mov a,m\ ora c\ mov m,a
                 pop h
-		mov a,b
+		mov a,b \ rrc
                 pop d
                 ret
 
@@ -339,7 +338,7 @@ setpixel1110:
 		mov a,m\ ora c\ mov m,a\ dad d
 		mov a,m\ ora c\ xra c\ mov m,a
                 pop h
-		mov a,b
+		mov a,b \ rrc
                 pop d
                 ret
 
@@ -354,7 +353,7 @@ setpixel1111:
 		mov a,m\ ora c\ mov m,a\ dad d
 		mov a,m\ ora c\ mov m,a
                 pop h
-		mov a,b
+		mov a,b \ rrc
                 pop d
                 ret
 
