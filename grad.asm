@@ -181,25 +181,25 @@ stax4:
 
                 .org     0ff00h & $ + 256
 setpixel1tab:
-				.dw setpixel0000
-				.dw setpixel0001
-				.dw setpixel0010
-				.dw setpixel0011
+		.dw setpixel0000
+		.dw setpixel0001
+		.dw setpixel0010
+		.dw setpixel0011
 
-				.dw setpixel0100
-				.dw setpixel0101
-				.dw setpixel0110
-				.dw setpixel0111
+		.dw setpixel0100
+		.dw setpixel0101
+		.dw setpixel0110
+		.dw setpixel0111
 
-				.dw setpixel1000
-				.dw setpixel1001
-				.dw setpixel1010
-				.dw setpixel1011
+		.dw setpixel1000
+		.dw setpixel1001
+		.dw setpixel1010
+		.dw setpixel1011
 
-				.dw setpixel1100
-				.dw setpixel1101
-				.dw setpixel1110
-				.dw setpixel1111
+		.dw setpixel1100
+		.dw setpixel1101
+		.dw setpixel1110
+		.dw setpixel1111
 				
                 ; unrolled version of setpixel for 1-pixel setpixels
                 ; de = tile addr
@@ -208,7 +208,7 @@ setpixel1tab:
                 ; returns a = YYYY____  (next pixel in high nybble of A)
 setpixel1:
                 push d
-				rlc\ rlc\ rlc\ rlc
+		rlc\ rlc\ rlc\ rlc
                 ;push b       ; stream buffer ptr caller-saved
                 mov b, a      ; b = saved a, c free 
 
@@ -223,92 +223,93 @@ setpixel1:
                 push h        ; save hl
 ;                mov h, b      ; h = pixel bits XXXXYYYY
 
-				mvi a,1111b
-				ana b
-				add a
-				mov l,a
-				mvi h,setpixel1tab>>8
-				mov a,m
-				inx h
-				mov h,m
-				mov l,a
-				
-				ldax d
-				ora c
-				pchl
+		mvi a,1111b
+		ana b
+		add a
+		mov l,a
+		mvi h,setpixel1tab>>8
+		mov a,m
+		inx h
+		mov h,m
+		mov l,a
+		
+		ldax d
+		ora c
+		pchl
 
 setpixel0000:
-				xra c
+		xra c         ; clear
 setpixel1000:
-				stax d
-				xchg
-				lxi d,8192
-				dad d
-				mov a,m\ ora c\ xra c\ mov m,a\ dad d
-				mov a,m\ ora c\ xra c\ mov m,a\ dad d
-				mov a,m\ ora c\ xra c\ mov m,a
+		stax d
+		xchg
+		lxi d,8192
+		dad d
+
+		mov a,m\ ora c\ xra c\ mov m,a\ dad d
+		mov a,m\ ora c\ xra c\ mov m,a\ dad d
+		mov a,m\ ora c\ xra c\ mov m,a
                 pop h
-				mov a,b
+	        mov a,b
                 pop d
                 ret
 
 setpixel0001:
                 xra c
 setpixel1001:
-				stax d
-				xchg
-				lxi d,8192
-				dad d
-				mov a,m\ ora c\ xra c\ mov m,a\ dad d
-				mov a,m\ ora c\ xra c\ mov m,a\ dad d
-				mov a,m\ ora c\ mov m,a
+		stax d
+		xchg
+		lxi d,8192
+		dad d
+		mov a,m\ ora c\ xra c\ mov m,a\ dad d
+		mov a,m\ ora c\ xra c\ mov m,a\ dad d
+		mov a,m\ ora c\ mov m,a
                 pop h
-				mov a,b
+		mov a,b
                 pop d
                 ret
 
 setpixel0010:
                 xra c
 setpixel1010:
-				stax d
-				xchg
-				lxi d,8192
-				dad d
-				mov a,m\ ora c\ xra c\ mov m,a\ dad d
-				mov a,m\ ora c\ mov m,a\ dad d
-				mov a,m\ ora c\ xra c\ mov m,a
+		stax d
+		xchg
+		lxi d,8192
+		dad d
+		mov a,m\ ora c\ xra c\ mov m,a\ dad d
+		mov a,m\ ora c\ mov m,a\ dad d
+		mov a,m\ ora c\ xra c\ mov m,a
                 pop h
-				mov a,b
+		mov a,b
                 pop d
                 ret
 
 setpixel0011:
                 xra c
 setpixel1011:
-				stax d
-				xchg
-				lxi d,8192
-				dad d
-				mov a,m\ ora c\ xra c\ mov m,a\ dad d
-				mov a,m\ ora c\ mov m,a\ dad d
-				mov a,m\ ora c\ mov m,a
+		stax d
+		xchg
+		lxi d,8192
+		dad d
+		mov a,m\ ora c\ xra c\ mov m,a\ dad d
+		mov a,m\ ora c\ mov m,a\ dad d
+		mov a,m\ ora c\ mov m,a
                 pop h
-				mov a,b
+		mov a,b
                 pop d
                 ret
 
 setpixel0100:
-				xra c
+		xra c
 setpixel1100:
                 stax d
-				xchg
-				lxi d,8192
-				dad d
-				mov a,m\ ora c\ mov m,a\ dad d
-				mov a,m\ ora c\ xra c\ mov m,a\ dad d
-				mov a,m\ ora c\ xra c\ mov m,a
+		xchg
+		lxi d,8192
+		dad d
+		mov a,m\ ora c\ mov m,a\ dad d
+		mov a,m\ ora c\ xra c\ mov m,a\ dad d
+		mov a,m\ ora c\ xra c\ mov m,a
                 pop h
-				mov a,b
+		mov a,b
                 pop d
                 ret
 
@@ -316,44 +317,44 @@ setpixel0101:
                 xra c
 setpixel1101:
                 stax d
-				xchg
-				lxi d,8192
-				dad d
-				mov a,m\ ora c\ mov m,a\ dad d
-				mov a,m\ ora c\ xra c\ mov m,a\ dad d
-				mov a,m\ ora c\ mov m,a
+		xchg
+		lxi d,8192
+		dad d
+		mov a,m\ ora c\ mov m,a\ dad d
+		mov a,m\ ora c\ xra c\ mov m,a\ dad d
+		mov a,m\ ora c\ mov m,a
                 pop h
-				mov a,b
+		mov a,b
                 pop d
                 ret
 
 setpixel0110:
-				xra c
+		xra c
 setpixel1110:
                 stax d
-				xchg
-				lxi d,8192
-				dad d
-				mov a,m\ ora c\ mov m,a\ dad d
-				mov a,m\ ora c\ mov m,a\ dad d
-				mov a,m\ ora c\ xra c\ mov m,a
+		xchg
+		lxi d,8192
+		dad d
+		mov a,m\ ora c\ mov m,a\ dad d
+		mov a,m\ ora c\ mov m,a\ dad d
+		mov a,m\ ora c\ xra c\ mov m,a
                 pop h
-				mov a,b
+		mov a,b
                 pop d
                 ret
 
 setpixel0111:
-				xra c
+		xra c
 setpixel1111:
                 stax d
-				xchg
-				lxi d,8192
-				dad d
-				mov a,m\ ora c\ mov m,a\ dad d
-				mov a,m\ ora c\ mov m,a\ dad d
-				mov a,m\ ora c\ mov m,a
+		xchg
+		lxi d,8192
+		dad d
+		mov a,m\ ora c\ mov m,a\ dad d
+		mov a,m\ ora c\ mov m,a\ dad d
+		mov a,m\ ora c\ mov m,a
                 pop h
-				mov a,b
+		mov a,b
                 pop d
                 ret
 
