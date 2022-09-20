@@ -209,33 +209,24 @@ setpixel1tab:
 setpixel1:
                 push d
                 rrc \ rrc \ rrc
-                ;push b       ; stream buffer ptr caller-saved
                 mov b, a      ; b = saved a, c free 
+                ani 11110b
+		sta setpixel1setjmp+1
+                ;mov a, e
+                ;sub m
+                mov a, m      ; use pre-inverted row offset in the table
+                add e
 
-                mov a, e
-                sub m
                 mov e, a      ; update pixel addr 
-
                 inx h         ; hl -> pixel mask
                 mov c, m      ; c = set mask
                 inx h         ; hl -> next in tile sequence
-
                 push h        ; save hl
-;                mov h, b      ; h = pixel bits XXXXYYYY
-
-                mvi a, 11110b
-                ana b
-		mov l,a
-		mvi h,setpixel1tab>>8
-		mov a,m
-		inx h
-		mov h,m
-		mov l,a
-		
+setpixel1setjmp:
+		lhld setpixel1tab
 		ldax d
 		ora c
 		pchl
-
 setpixel0000:
 		xra c         ; clear
 setpixel1000:
@@ -374,7 +365,7 @@ pseq_yx:        .db 0,255,                   ; 8 - толстая маска
                 .db 6,$c0, 6,$30, 4,$30,     
                 .db 6,$0c, 6,$03, 4,$03, 
                 .db 2,$0c, 2,$03, 0,$03, 
-                .db 1,128, 1,64, 0,64, 3,128, 3,64, 2,64, 3,32, 3,16, 2,16, 1,32, 1,16, 0,16, 5,128, 5,64, 4,64, 7,128, 7,64, 6,64, 7,32, 7,16, 6,16, 5,32, 5,16, 4,16, 5,8, 5,4, 4,4, 7,8, 7,4, 6,4, 7,2, 7,1, 6,1, 5,2, 5,1, 4,1, 1,8, 1,4, 0,4, 3,8, 3,4, 2,4, 3,2, 3,1, 2,1, 1,2, 1,1, 0,1        ; 1 - возьмужки
+                .db 1,128, -1,64, -0,64, -3,128, -3,64, -2,64, -3,32, -3,16, -2,16, -1,32, -1,16, -0,16, -5,128, -5,64, -4,64, -7,128, -7,64, -6,64, -7,32, -7,16, -6,16, -5,32, -5,16, -4,16, -5,8, -5,4, -4,4, -7,8, -7,4, -6,4, -7,2, -7,1, -6,1, -5,2, -5,1, -4,1, -1,8, -1,4, -0,4, -3,8, -3,4, -2,4, -3,2, -3,1, -2,1, -1,2, -1,1, -0,1        ; 1 - возьмужки
 
 putpic_v2:
                 call picstream_getbyte        ; x0
@@ -510,6 +501,7 @@ draw_tile_1:
                 mvi a, 48
 draw_tile_1_L1:
                 push psw
+
                 ldax b
                 inr c
                 cz picstream_fetch
@@ -526,6 +518,7 @@ draw_tile_1_L1:
                 call setpixel1
                 call setpixel1
                 pop b
+
                 pop psw
                 sui 4
                 jnz draw_tile_1_L1
